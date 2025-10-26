@@ -163,5 +163,5 @@ def handle_disconnect():
     logger.info('Browser client disconnected')
 
 if __name__ =='__main__':
-    logger.info('Starting Puter AI Processor server on port 5001')
-    socketio.run(app, host='0.0.0.0', port=5001, debug=True)
+    logger.info('Starting Puter AI Processor server on port 30000')
+    socketio.run(app, host='0.0.0.0', port=30000, debug=True)
