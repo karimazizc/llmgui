@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify
-# from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
 import os
 import uuid
@@ -33,12 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize SocketIO
-# socketio = SocketIO(app, cors_allowed_origins="*", async_mode="gevent")
-import redis
-import json
-
-r = redis.StrictRedis(host='websocket.whisttle.cloud:5000', port=6379, db=0)
-
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="gevent")
 
 # Store pending requests and results
 pending_requests = {}
@@ -78,18 +73,11 @@ def process_prompt():
     logger.info(f'[{request_id}] New request - Model: {model}, Prompt: {prompt[:50]}...')
     
     # Emit to connected browser clients to process
-    # socketio.emit('new_request', {
-    #     'request_id': request_id,
-    #     'model': model,
-    #     'prompt': prompt
-    # })
-
-    r.publish('flask_channel', json.dumps({
+    socketio.emit('new_request', {
         'request_id': request_id,
         'model': model,
         'prompt': prompt
-    }))
-
+    })
     
     # Wait for result (with timeout)
     import time
@@ -165,16 +153,15 @@ def get_status():
             'completed_results': len(completed_results)
         }), 200
 
-# @socketio.on('connect')
-# def handle_connect():
-#     logger.info('Browser client connected')
-#     emit('connected', {'message': 'Connected to Flask server'})
+@socketio.on('connect')
+def handle_connect():
+    logger.info('Browser client connected')
+    emit('connected', {'message': 'Connected to Flask server'})
 
-# @socketio.on('disconnect')
-# def handle_disconnect():
-#     logger.info('Browser client disconnected')
+@socketio.on('disconnect')
+def handle_disconnect():
+    logger.info('Browser client disconnected')
 
 if __name__ =='__main__':
-    logger.info('Starting Puter AI Processor server on port 30001')
-    # socketio.run(app, host='0.0.0.0', port=30001, debug=True)
-    app.run(host='0.0.0.0', port=30001, debug=True)
+    logger.info('Starting Puter AI Processor server on port 30000')
+    socketio.run(app, host='0.0.0.0', port=30000, debug=True)

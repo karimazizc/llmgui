@@ -69,7 +69,7 @@
         let requestCount = 0;
         
         // Connect to Flask-SocketIO
-        const socket = io("wss://websocket.whisttle.cloud:5000");
+        const socket = io();
         
         socket.on('connect', function() {
             updateStatus('connected', '<i class="fas fa-check-circle"></i> Connected to server - Ready to process requests');
