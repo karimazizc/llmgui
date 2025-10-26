@@ -5,16 +5,19 @@ services:
     build: ./app
     container_name: flask_app
     restart: always
-    expose:
-      - "5000"
-  
+    ports:
+      - "5000:5000"  # Expose Flask app for Nginx to proxy
+    environment:
+      - PYTHONUNBUFFERED=1
+
   nginx:
     image: nginx:latest
     container_name: nginx_proxy
     restart: always
     ports:
-      - "5000:80"
+      - "443:443"  # Expose SSL port to the host
     volumes:
-      - ./nginx/websocket.conf:/etc/nginx/conf.d/
+      - ./nginx/websocket.conf:/etc/nginx/conf.d/websocket.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro  # For SSL certs
     depends_on:
       - flask
