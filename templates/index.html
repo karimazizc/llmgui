@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Puter AI Processor</title>
+    <script src="https://js.puter.com/v2/"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-robot"></i> Puter AI Processor</h1>
+        
+        <div class="main-grid">
+            <!-- Left Section: Processor Status & Monitoring -->
+            <div class="section-box">
+                <h2 class="section-title"><i class="fas fa-chart-line"></i> System Monitor</h2>
+                
+                <div id="status" class="status disconnected">
+                    <i class="fas fa-exclamation-triangle"></i> Initializing...
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Requests Processed</div>
+                        <div class="stat-value" id="requestCount">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Current Status</div>
+                        <div class="stat-value" id="currentStatus" style="font-size: 14px; word-break: break-word;">Waiting...</div>
+                    </div>
+                </div>
+                
+                <h3 class="section-title" style="font-size: 16px; margin-top: 24px;"><i class="fas fa-list-ul"></i> Activity Log</h3>
+                <div id="log" class="log"></div>
+            </div>
+
+            <!-- Right Section: Test Chat Interface -->
+            <div class="section-box">
+                <h2 class="section-title"><i class="fas fa-comments"></i> Test Chat Interface</h2>
+                
+                <div class="chat-container">
+                    <div id="chatMessages" class="chat-messages">
+                        <div class="empty-state">Start a conversation...</div>
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <input 
+                            type="text" 
+                            id="chatInput" 
+                            class="chat-input"
+                            placeholder="Type your message here..." 
+                            onkeypress="if(event.key === 'Enter') sendChatMessage()"
+                        />
+                        <select id="modelSelect" class="model-select">
+                            <option value="gpt-5-nano">GPT-5 Nano</option>
+                            <option value="claude">Claude</option>
+                        </select>
+                        <button onclick="sendChatMessage()" class="send-button">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let requestCount = 0;
+        
+        // Connect to Flask-SocketIO
+        const socket = io();
+        
+        socket.on('connect', function() {
+            updateStatus('connected', '<i class="fas fa-check-circle"></i> Connected to server - Ready to process requests');
+            addLog('Connected to Flask server');
+        });
+        
+        socket.on('disconnect', function() {
+            updateStatus('disconnected', '<i class="fas fa-exclamation-triangle"></i> Disconnected from server');
+            addLog('Disconnected from Flask server');
+        });
+        
+        socket.on('connected', function(data) {
+            addLog('Server says: ' + data.message);
+        });
+        
+        // Listen for new requests from the server
+        socket.on('new_request', async function(data) {
+            const { request_id, model, prompt } = data;
+            
+            updateStatus('processing', `<i class="fas fa-spinner fa-spin"></i> Processing request: ${request_id}`);
+            document.getElementById('currentStatus').textContent = `Processing...`;
+            addLog(`[${request_id}] New request received`);
+            addLog(`Model: ${model}`);
+            addLog(`Prompt: ${String(prompt).substring(0, 100)}...`);
+            
+            try {
+                // Call Puter AI
+                addLog(`[${request_id}] Calling Puter AI...`);
+                const result = await puter.ai.chat(prompt, { model: model });
+                
+                // Convert result to string if it's not already
+                const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+                
+                addLog(`[${request_id}] AI Response received (${resultStr.length} chars)`);
+                addLog(`Response preview: ${resultStr.substring(0, 100)}...`);
+                
+                // Send result back to Flask
+                const response = await fetch('/api/result', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        request_id: request_id,
+                        result: resultStr,  // Use the string version
+                        model: model,
+                        prompt: prompt
+                    })
+                });
+                
+                const responseData = await response.json();
+                addLog(`[${request_id}] Result sent to server: ${responseData.message}`);
+                
+                requestCount++;
+                document.getElementById('requestCount').textContent = requestCount;
+                updateStatus('connected', '<i class="fas fa-check-circle"></i> Connected to server - Ready to process requests');
+                document.getElementById('currentStatus').textContent = 'Waiting...';
+                
+            } catch (error) {
+                addLog(`[${request_id}] ERROR: ${error.message}`, 'error');
+                console.error('Puter AI Error:', error);
+                updateStatus('connected', '<i class="fas fa-check-circle"></i> Connected (with errors)');
+                document.getElementById('currentStatus').textContent = 'Error';
+            }
+        });
+        
+        function updateStatus(type, message) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status ' + type;
+            statusDiv.innerHTML = message;
+        }
+        
+        function addLog(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.style.color = type === 'error' ? '#ef4444' : 'inherit';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Chat functionality
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const model = document.getElementById('modelSelect').value;
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            const chatBox = document.getElementById('chatMessages');
+            
+            // Remove empty state
+            const emptyState = chatBox.querySelector('.empty-state');
+            if (emptyState) emptyState.remove();
+            
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.innerHTML = `<div class="message-bubble">${escapeHtml(message)}</div>`;
+            chatBox.appendChild(userMsg);
+            
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+            
+            // Add loading indicator
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'message loading';
+            loadingMsg.id = 'loading';
+            loadingMsg.innerHTML = `<div class="message-bubble">Thinking...</div>`;
+            chatBox.appendChild(loadingMsg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            
+            try {
+                // Call Puter AI
+                const response = await puter.ai.chat(message, { model: model });
+                
+                // Remove loading
+                document.getElementById('loading').remove();
+                
+                // Add AI response
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'message ai';
+                aiMsg.innerHTML = `<div class="message-bubble">${escapeHtml(response)}</div>`;
+                chatBox.appendChild(aiMsg);
+                
+            } catch (error) {
+                document.getElementById('loading')?.remove();
+                
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'message error';
+                errorMsg.innerHTML = `<div class="message-bubble">Error: ${escapeHtml(error.message)}</div>`;
+                chatBox.appendChild(errorMsg);
+            }
+            
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Keep the page alive
+        setInterval(() => {
+            // Heartbeat - could add ping/pong if needed
+        }, 30000);
+    </script>
+</body>
+</html>
