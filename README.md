@@ -45,9 +45,9 @@ Now you can send requests via cURL or any API client:
 
 ```bash
 # Send a prompt to be processed
-curl -X POST http://localhost:5001/api/process \
+curl -X POST http://websocket.whisttle.cloud:30000/api/process \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Explain quantum computing in simple terms", "model": "gpt-4"}'
+  -d '{"prompt": "Explain quantum computing in simple terms", "model": "claude"}'
 ```
 
 **Available Models:**
