@@ -11,5 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the app
 COPY . .
 
+EXPOSE 5000
+
 # Run Flask via Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
