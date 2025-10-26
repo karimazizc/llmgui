@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 import redis
 import json
 
-r = redis.StrictRedis(host='whisttle.cloud:5000', port=6379, db=0)
+r = redis.StrictRedis(host='websocket.whisttle.cloud:5000', port=6379, db=0)
 
 
 # Store pending requests and results
